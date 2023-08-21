@@ -1,0 +1,160 @@
+\documentclass[aspectratio=169]{beamer}
+
+% packages
+\usepackage{graphicx}
+  \graphicspath{{figures}}
+\usepackage{minted}
+\usepackage{amssymb}
+\usepackage{tcolorbox}
+
+% subfig support
+\usepackage{caption}
+\usepackage{subcaption}
+
+% packages
+\usepackage{biblatex}
+  \addbibresource{bibliography.bib}
+\usepackage[acronym,nomain]{glossaries}
+  \setacronymstyle{long-short}
+  \newacronym[shortplural={DoFs},longplural={degrees-of-freedom}]
+    {dof}{DoF}{degree-of-freedom}
+  \newacronym{fem}{FEM}{the finite element method}
+  \newacronym{pde}{PDE}{partial differential equation}
+  \newacronym[shortplural={FLOPs},longplural={floating-point operations}]
+    {flop}{FLOP}{floating-point operation}
+  \newacronym{dag}{DAG}{directed acyclic graph}
+  \newacronym{dg}{DG}{discontinous Galerkin}
+  \newacronym{poset}{poset}{partially-ordered set}
+  \newacronym{rcm}{RCM}{reverse Cuthill-McKee}
+  \newacronym{dsl}{DSL}{domain-specific language}
+  \newacronym{jit}{JIT}{just-in-time}
+  \newacronym{ufl}{UFL}{the Unified Form Language}
+  \newacronym{tsfc}{TSFC}{the Two-Stage Form Compiler}
+\usepackage{graphicx}
+  \graphicspath{{figures}}
+\usepackage{todonotes}
+\usepackage{hyperref}
+\usepackage{subcaption}
+\usepackage{amsmath}
+% source: https://tex.stackexchange.com/questions/650034/mathbb-font-for-lowercase-letters
+\usepackage[bb=libus]{mathalpha}
+\usepackage{pgf}
+\usepackage{pgfplots}
+\usepackage{tikz}
+\usepackage{tkz-euclide}
+  % \usetikzlibrary{arrows,calc,graphs,graphdrawing,positioning,tikzmark,shapes.geometric,patterns.meta,decorations.pathreplacing,decorations.marking}
+  \usetikzlibrary{arrows,calc,graphs,graphdrawing,positioning,tikzmark,shapes.geometric,patterns.meta,decorations.pathreplacing}
+  \usegdlibrary{trees}
+  \pgfdeclarelayer{background}
+  \pgfsetlayers{background,main}
+  \tikzstyle{ptlabel} = [anchor=center, color=black, opacity=1]
+  \tikzset{font={\small}}
+  \tikzset{label style/.append style={font=\small}}
+  % source: https://tex.stackexchange.com/questions/356564/macro-for-rounded-polygon-around-some-nodes
+  \def\drawpolygon#1,#2;{
+    \begin{pgfonlayer}{background}
+        \filldraw[line width=28,join=round](#1.center)foreach\A in{#2}{--(\A.center)}--cycle;
+        \filldraw[line width=27,join=round,blue!10](#1.center)foreach\A in{#2}{--(\A.center)}--cycle;
+    \end{pgfonlayer}
+  }
+
+% theme info
+\usetheme{firedrake}
+
+% title info
+\title{RSECon 2023 Firedrake workshop}
+\author{Jack Betteridge, Daiane Dolci, Connor Ward}
+\date{???}
+
+% macros
+
+% checkbox
+% source https://tex.stackexchange.com/questions/16000/creating-boxed-check-mark
+\newcommand{\unchecked}{\makebox[0pt][l]{$\square$}\raisebox{.15ex}{\hspace{0.1em}$\quad$}}
+\newcommand{\maybe}{\makebox[0pt][l]{$\square$}\raisebox{.15ex}{\hspace{0.1em}$\lozenge$}}
+\newcommand{\checked}{\makebox[0pt][l]{$\square$}\raisebox{.15ex}{\hspace{0.1em}$\checkmark$}}
+
+% hacky way to get \pyop2 and \pyop3 as valid macros
+% source: https://tex.stackexchange.com/questions/13290/how-to-define-macros-with-numbers-in-them
+\def\pyop#1{\ifnum#1=2 {PyOP2}\else \ifnum#1=3 {\texttt{pyop3}}\fi \fi}
+
+\newcommand{\py}{\mintinline{python}}
+\newcommand{\clang}{\mintinline{c}}
+\newcommand{\closure}{\mathbb{cl}}
+\newcommand{\support}{\mathbb{supp}}
+\newcommand{\plexstar}{\mathbb{st}}
+\newcommand{\cone}{\mathbb{cone}}
+
+\newcommand{\hdiv}{$H(\mathrm{div})$ }
+\newcommand{\hcurl}{$H(\mathrm{curl})$ }
+
+\tikzstyle{plexstencil} = [draw=none,fill=blue!30,fill opacity=.4]
+
+\newcommand{\codebgcolor}{black!10}
+
+% set default parameters for tcolorbox
+\tcbset{
+  left=2mm
+}
+
+% set default minted parameters
+\setminted{fontsize=\footnotesize}
+
+% =============================================================================
+
+% NOTES:
+% * Why are we better than FEnICs?
+%   * Point data/vertex-only meshes
+%   * Neural net integration
+%   * Adjoint
+%   * Tight integration with PETSc
+%   * pyop3?
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}{Workshop plan}
+  \begin{enumerate}
+    \item Brief introduction to Firedrake (10 mins)
+    \item Hands-on with Jupyter notebooks (80 mins)
+    \item Free coding time/Q\&As (90 mins)
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{What is Firedrake?}
+
+  \begin{itemize}
+    \item Framework for solving partial differential equations (PDEs) using the finite element method (FEM)
+    \item Almost entirely written in Python
+    \item Makes heavy use of code generation to provide flexibility and performance
+  \end{itemize}
+
+\end{frame}
+
+\begin{frame}{Why should I, an RSE, care about Firedrake?}
+  \begin{itemize}
+    \item FEM is extremely widely used by researchers
+    \item FEM codes are challenging to write from scratch
+    \item A mathematician/domain specialist can write a Firedrake application to solve their equation in fewer than 100 lines of Python code
+    \item This script can then, without modification\*, be run on massive supercomputer
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{How does Firedrake work?}
+  % using UFL lets users express a vast/arbitrary number of equations to solve
+  % enormous choice of function spaces to arbitrary degree
+
+  % uses PETSc for linear algebra bits
+\end{frame}
+
+% I couldn't get COLAB working (didn't want to run as root and the docs do not make it clear)
+\begin{frame}{Next steps}
+  \begin{enumerate}
+    % prerequisites?
+    \item Install Jupyter, etc
+    \item Download the first Jupyter notebook from \texttt{https://www.firedrakeproject.org/notebooks.html}.
+  \end{enumerate}
+\end{frame}
+
+\end{document}
